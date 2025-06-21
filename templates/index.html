@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PCA para Clasificación Astronómica</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #0f0f1e 0%, #1a1a2e 50%, #16213e 100%);
+            color: #ffffff;
+            min-height: 100vh;
+            position: relative;
+            overflow-x: hidden;
+        }
+
+        /* Estrellas de fondo */
+        .stars {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+        }
+
+        .star {
+            position: absolute;
+            background: #ffffff;
+            border-radius: 50%;
+            animation: twinkle 2s infinite alternate;
+        }
+
+        @keyframes twinkle {
+            0% { opacity: 0.3; }
+            100% { opacity: 1; }
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+            padding: 40px 20px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 20px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+
+        .header h1 {
+            font-size: 3rem;
+            background: linear-gradient(45deg, #64b5f6, #42a5f5, #29b6f6, #26c6da);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 10px;
+            text-shadow: 0 0 30px rgba(100, 181, 246, 0.5);
+        }
+
+        .header p {
+            font-size: 1.2rem;
+            color: #b0bec5;
+            margin-top: 10px;
+        }
+
+        .analysis-section {
+            background: rgba(255, 255, 255, 0.08);
+            border-radius: 15px;
+            padding: 30px;
+            margin-bottom: 30px;
+            backdrop-filter: blur(15px);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .analysis-section:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.3);
+        }
+
+        .filter-container {
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 30px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .filter-label {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 15px;
+            color: #b0bec5;
+            font-size: 1.1rem;
+            font-weight: 500;
+        }
+
+        .filter-icon {
+            font-size: 1.2rem;
+        }
+
+        .select-wrapper {
+            position: relative;
+            margin-bottom: 20px;
+        }
+
+        .filter-select {
+            width: 100%;
+            padding: 15px 50px 15px 20px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 2px solid rgba(100, 181, 246, 0.3);
+            border-radius: 12px;
+            color: #ffffff;
+            font-size: 1rem;
+            font-weight: 500;
+            appearance: none;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(10px);
+        }
+
+        .filter-select:hover {
+            border-color: rgba(100, 181, 246, 0.6);
+            background: rgba(255, 255, 255, 0.08);
+        }
+
+        .filter-select:focus {
+            outline: none;
+            border-color: #64b5f6;
+            box-shadow: 0 0 20px rgba(100, 181, 246, 0.3);
+        }
+
+        .select-arrow {
+            position: absolute;
+            right: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #64b5f6;
+            pointer-events: none;
+            font-size: 1.2rem;
+            transition: transform 0.3s ease;
+        }
+
+        .filter-select:focus + .select-arrow {
+            transform: translateY(-50%) rotate(180deg);
+        }
+
+        .filter-info {
+            margin-top: 15px;
+        }
+
+        .info-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            padding: 10px;
+            background: rgba(100, 181, 246, 0.1);
+            border-radius: 8px;
+            border-left: 3px solid #64b5f6;
+        }
+
+        .info-icon {
+            font-size: 1rem;
+            margin-top: 2px;
+        }
+
+        .info-text {
+            color: #b0bec5;
+            font-size: 0.9rem;
+            line-height: 1.4;
+        }
+
+        .button-container {
+            text-align: center;
+            margin-top: 30px;
+        }
+
+        .execute-btn {
+            position: relative;
+            background: linear-gradient(45deg, #6366f1, #8b5cf6, #a855f7);
+            color: white;
+            border: none;
+            padding: 18px 45px;
+            font-size: 1.1rem;
+            border-radius: 50px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(139, 92, 246, 0.4);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            gap: 12px;
+            overflow: hidden;
+        }
+
+        .execute-btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 30px rgba(139, 92, 246, 0.6);
+            background: linear-gradient(45deg, #7c3aed, #a855f7, #c084fc);
+        }
+
+        .execute-btn:active {
+            transform: translateY(-1px);
+        }
+
+        .btn-icon {
+            font-size: 1.3rem;
+            animation: rocket 2s infinite ease-in-out;
+        }
+
+        .btn-text {
+            font-weight: 600;
+        }
+
+        .btn-glow {
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+            transition: left 0.5s;
+        }
+
+        .execute-btn:hover .btn-glow {
+            left: 100%;
+        }
+
+        @keyframes rocket {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-3px); }
+        }
+
+        .results-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin-top: 40px;
+        }
+
+        .formula-card {
+            background: rgba(255, 255, 255, 0.06);
+            border-radius: 12px;
+            padding: 25px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+        }
+
+        .formula-card h3 {
+            color: #64b5f6;
+            margin-bottom: 15px;
+            font-size: 1.3rem;
+        }
+
+        .formula {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 15px;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 1rem;
+            color: #81c784;
+            border-left: 4px solid #64b5f6;
+            word-wrap: break-word;
+        }
+
+        .chart-container {
+            background: rgba(255, 255, 255, 0.06);
+            border-radius: 15px;
+            padding: 25px;
+            margin: 20px 0;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            text-align: center;
+        }
+
+        .chart-container h2 {
+            color: #64b5f6;
+            margin-bottom: 20px;
+            font-size: 1.8rem;
+        }
+
+        .chart-container img {
+            max-width: 100%;
+            height: auto;
+            border-radius: 10px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+            transition: transform 0.3s ease;
+        }
+
+        .chart-container img:hover {
+            transform: scale(1.02);
+        }
+
+        .object-types {
+            display: flex;
+            justify-content: space-around;
+            margin: 30px 0;
+            flex-wrap: wrap;
+        }
+
+        .object-type {
+            background: rgba(255, 255, 255, 0.08);
+            border-radius: 12px;
+            padding: 20px;
+            margin: 10px;
+            min-width: 200px;
+            text-align: center;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            transition: all 0.3s ease;
+        }
+
+        .object-type:hover {
+            transform: translateY(-3px);
+            background: rgba(255, 255, 255, 0.12);
+        }
+
+        .object-type h3 {
+            margin-bottom: 10px;
+            font-size: 1.3rem;
+        }
+
+        .star-type { border-left: 4px solid #ffeb3b; }
+        .galaxy-type { border-left: 4px solid #e91e63; }
+        .quasar-type { border-left: 4px solid #00bcd4; }
+
+        .star-type h3 { color: #ffeb3b; }
+        .galaxy-type h3 { color: #e91e63; }
+        .quasar-type h3 { color: #00bcd4; }
+
+        @media (max-width: 768px) {
+            .header h1 {
+                font-size: 2rem;
+            }
+            
+            .results-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .object-types {
+                flex-direction: column;
+                align-items: center;
+            }
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            margin: 30px 0;
+            padding: 25px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 15px;
+            border: 1px solid rgba(100, 181, 246, 0.3);
+        }
+
+        .loading-detail {
+            color: #b0bec5;
+            font-size: 0.9rem;
+            margin-top: 10px;
+            font-style: italic;
+        }
+
+        .spinner {
+            border: 4px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top: 4px solid #64b5f6;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="stars" id="stars"></div>
+    
+    <div class="container">
+        <div class="header">
+            <h1>🌌 Análisis PCA de Objetos Astronómicos</h1>
+            <p>Clasificación de estrellas, galaxias y cuásares mediante análisis de componentes principales</p>
+        </div>
+
+        <div class="object-types">
+            <div class="object-type star-type">
+                <h3>⭐ Estrellas</h3>
+                <p>Objetos estelares con características espectrales distintivas</p>
+            </div>
+            <div class="object-type galaxy-type">
+                <h3>🌌 Galaxias</h3>
+                <p>Sistemas estelares masivos con patrones morfológicos únicos</p>
+            </div>
+            <div class="object-type quasar-type">
+                <h3>💫 Cuásares</h3>
+                <p>Núcleos galácticos activos con alta luminosidad</p>
+            </div>
+        </div>
+
+        <div class="analysis-section">
+            <h2 style="color: #64b5f6; margin-bottom: 25px; text-align: center; font-size: 1.5rem;">
+                🔬 Configuración del Análisis
+            </h2>
+            
+            <form action="/" method="POST" enctype="multipart/form-data">
+                <div class="filter-container">
+                    <label for="filtro" class="filter-label">
+                        <span class="filter-icon">🎯</span>
+                        Filtrar por tipo de objeto astronómico:
+                    </label>
+                    
+                    <div class="select-wrapper">
+                        <select name="filtro" id="filtro" class="filter-select">
+                            <option value="TODOS" data-icon="🌌">🌌 Todos los objetos</option>
+                            <option value="STAR" data-icon="⭐">⭐ Estrellas únicamente</option>
+                            <option value="GALAXY" data-icon="🌀">🌀 Galaxias únicamente</option>
+                            <option value="QSO" data-icon="💫">💫 Cuásares únicamente</option>
+                        </select>
+                        <div class="select-arrow">▼</div>
+                    </div>
+                    
+                    <div class="filter-info">
+                        <div class="info-item">
+                            <span class="info-icon">ℹ️</span>
+                            <span class="info-text">El filtro afecta tanto la visualización PCA como los cálculos estadísticos</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="button-container">
+                    <button type="submit" class="execute-btn" onclick="showLoading()">
+                        <span class="btn-icon">🚀</span>
+                        <span class="btn-text">Ejecutar Análisis PCA</span>
+                        <span class="btn-glow"></span>
+                    </button>
+                </div>
+            </form>
+            
+            <div class="loading" id="loading">
+                <div class="spinner"></div>
+                <p>Procesando datos astronómicos...</p>
+                <p class="loading-detail">Aplicando filtros y calculando componentes principales...</p>
+            </div>
+        </div>
+
+        {% if formula_pc1 %}
+        <div class="results-grid">
+            <div class="formula-card">
+                <h3>🔬 Componente Principal 1 (PC1)</h3>
+                <div class="formula">{{ formula_pc1 }}</div>
+            </div>
+            <div class="formula-card">
+                <h3>🔬 Componente Principal 2 (PC2)</h3>
+                <div class="formula">{{ formula_pc2 }}</div>
+            </div>
+        </div>
+
+        <div class="chart-container">
+            <h2>📊 Distribución de Componentes Principales</h2>
+            <img src="../static/pca_plot.png" alt="Gráfico PCA de objetos astronómicos">
+            <p style="margin-top: 15px; color: #b0bec5;">
+                Visualización de la separación entre estrellas, galaxias y cuásares en el espacio de componentes principales
+            </p>
+        </div>
+
+        <div class="chart-container">
+            <h2>📈 Importancia de los Componentes (Valores Propios)</h2>
+            <img src="../static/eigen_plot.png" alt="Gráfico de valores propios">
+            <p style="margin-top: 15px; color: #b0bec5;">
+                Contribución de cada componente principal a la varianza total de los datos
+            </p>
+        </div>
+        {% endif %}
+    </div>
+
+    <script>
+        // Crear estrellas de fondo
+        function createStars() {
+            const starsContainer = document.getElementById('stars');
+            const numStars = 100;
+            
+            for (let i = 0; i < numStars; i++) {
+                const star = document.createElement('div');
+                star.className = 'star';
+                star.style.left = Math.random() * 100 + '%';
+                star.style.top = Math.random() * 100 + '%';
+                star.style.width = Math.random() * 3 + 1 + 'px';
+                star.style.height = star.style.width;
+                star.style.animationDelay = Math.random() * 2 + 's';
+                starsContainer.appendChild(star);
+            }
+        }
+
+        function showLoading() {
+            document.getElementById('loading').style.display = 'block';
+        }
+
+        // Inicializar estrellas al cargar la página
+        window.addEventListener('load', createStars);
+    </script>
+</body>
+</html>
